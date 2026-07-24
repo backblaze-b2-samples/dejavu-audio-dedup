@@ -17,13 +17,21 @@ This sample answers it end to end using **[Dejavu](https://github.com/worldveil/
 
 ## What it looks like
 
-**Dashboard** — dedup metrics and recent ingests:
+**Dashboard** — dedup metrics (tracks in catalog, fingerprints indexed, duplicates detected), a 7-day ingest-activity chart, and recent ingests.
 
-![Dashboard with tracks-in-catalog, fingerprints-indexed and duplicates-detected stat cards](docs/images/dejavu-audio-dedup-dashboard.png)
+![Dashboard with tracks-in-catalog, fingerprints-indexed and duplicates-detected stat cards, an ingest-activity chart, and a recent-ingests table](docs/images/dejavu-audio-dedup-dashboard.png)
 
-**Catalog** — ingested tracks with fingerprint status and inline players:
+**Catalog** — the ingested audio library with per-track fingerprint status, inline players, and re-uploads flagged as duplicates.
 
-![Catalog view listing audio tracks with fingerprint status badges and audio players](docs/images/dejavu-audio-dedup-catalog.png)
+![Catalog view listing audio tracks with fingerprint status badges, inline audio players, and a duplicate badge](docs/images/dejavu-audio-dedup-catalog.png)
+
+**Deduplicate** — match a candidate against the live index and get the verdict: matched track, confidence, time offset, and hashes matched, with every run logged to B2.
+
+![Deduplicate view showing a duplicate verdict with matched track, 100% confidence, offset and hashes matched](docs/images/dejavu-audio-dedup-deduplicate.png)
+
+**Track detail** — a track's fingerprint metadata and its canonical/duplicate relationship, with editable title, artist, and notes.
+
+![Track detail page showing fingerprint metadata, duplicate-of relationship, and an editable metadata form](docs/images/dejavu-audio-dedup-track-detail.png)
 
 ## How the two index layers relate
 
