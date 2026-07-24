@@ -90,12 +90,13 @@ def _track_from(obj, entry: dict | None) -> Track:
 
 
 def list_tracks() -> list[Track]:
-    """List catalog tracks (objects under ``catalog/``) joined with the manifest,
-    newest-first."""
+    """List catalog audio tracks (audio objects under ``catalog/``) joined with the
+    manifest, newest-first; non-audio sidecar objects are skipped."""
     manifest = mf.load_manifest()
     tracks = [
         _track_from(obj, mf.entry_for(manifest, obj.key))
         for obj in list_files(prefix=mf.CATALOG_PREFIX)
+        if (obj.content_type or "").startswith("audio/")  # skip non-audio sidecars
     ]
     tracks.sort(key=lambda t: t.uploaded_at, reverse=True)
     return tracks

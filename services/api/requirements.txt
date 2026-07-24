@@ -12,6 +12,10 @@ boto3>=1.35.0
 numpy>=1.24,<2
 scipy>=1.10,<1.14
 pydub>=0.25.1
+# Dejavu is installed --no-deps (see note below) but imports matplotlib.mlab at
+# module load (logic/fingerprint.py), so it must be provided here. Pinned < 3.10
+# to stay on the numpy 1.x ABI (matplotlib 3.8/3.9 support the numpy>=1.24,<2 above).
+matplotlib>=3.8,<3.10
 # Dejavu's canonical fingerprint store is MySQL; this is the driver it imports
 # (`mysql.connector`) and the one repo/dejavu_index.py uses for its own queries.
 mysql-connector-python>=8.2,<9

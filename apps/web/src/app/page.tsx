@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentUploadsTable } from "@/components/dashboard/recent-uploads-table";
 import { UploadChart } from "@/components/dashboard/upload-chart";
+import { ExportIndexButton } from "@/components/dashboard/export-index-button";
 
 export default function DashboardPage() {
   return (
@@ -16,12 +17,15 @@ export default function DashboardPage() {
             Audio-catalog dedup at a glance — fingerprints indexed and duplicates caught.
           </p>
         </div>
-        <Button asChild size="sm" className="h-8">
-          <Link href="/catalog">
-            <Library className="h-3.5 w-3.5" />
-            Open catalog
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportIndexButton />
+          <Button asChild size="sm" className="h-8">
+            <Link href="/catalog">
+              <Library className="h-3.5 w-3.5" />
+              Open catalog
+            </Link>
+          </Button>
+        </div>
       </div>
       <StatsCards />
       <div className="grid gap-6 lg:grid-cols-2">

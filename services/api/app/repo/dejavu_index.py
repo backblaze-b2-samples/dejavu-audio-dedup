@@ -70,7 +70,15 @@ def fingerprint_file(path: str, track_name: str) -> dict:
     spectrogram-peak hashes, and inserts them under ``track_name``.
     """
     djv = _get_djv()
-    djv.fingerprint_file(path, song_name=track_name)
+    # Dejavu's own single-file `fingerprint_file` is broken in the pinned commit:
+    # it forwards `song_name=` into `_fingerprint_worker`, which accepts only a
+    # single `(path, limit)` tuple → TypeError. Drive the working lower-level API
+    # directly and persist through Dejavu's own DB object, so the canonical
+    # `songs`/`fingerprints` schema (and every query in this module) stays intact.
+    _, hashes, file_hash = djv._fingerprint_worker((path, djv.limit))
+    sid = djv.db.insert_song(track_name, file_hash, len(hashes))
+    djv.db.insert_hashes(sid, hashes)
+    djv.db.set_song_fingerprinted(sid)
     row = _song_row(track_name)
     if row is None:
         return {"track_id": None, "fingerprint_count": 0}

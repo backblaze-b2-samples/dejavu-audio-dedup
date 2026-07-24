@@ -5,6 +5,7 @@ import {
   ApiError,
   deleteFile,
   deleteTrack,
+  exportIndex,
   getCatalog,
   getCatalogStats,
   getFileDetail,
@@ -166,5 +167,16 @@ export function useDeleteTrack() {
   return useMutation({
     mutationFn: (key: string) => deleteTrack(key),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.all }),
+  });
+}
+
+// Dump the MySQL fingerprint index + manifest to B2 (POST /index/export).
+// The export re-saves the manifest with a fresh `updated_at`, so refresh the
+// catalog stats afterwards to reflect the newly persisted state.
+export function useExportIndex() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => exportIndex(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.catalogStats() }),
   });
 }

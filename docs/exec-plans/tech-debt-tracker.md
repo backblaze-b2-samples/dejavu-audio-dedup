@@ -50,3 +50,11 @@ Known tech debt items. Agents update this when they discover or create tech debt
 | Custom `FileNotFoundError` shadowed the built-in | Renamed to `FileNotFoundServiceError` |
 | Dropzone accepted any file type client-side | `accept` allow-list mirroring backend `ALLOWED_TYPES` (tested for drift) |
 | No test harness for feature specs | pytest suite across upload, files, activity, errors, validation, rate limit, pagination |
+
+## 2026-07-24 — verify
+
+Nitpicks surfaced during the sample-3-verify UX funnel (triaged nitpick — backlog, not looped on):
+
+- Sidebar (all screens) — sidebar shows both "Upload" (generic starter uploader at `/upload`, which does not fingerprint or add to the catalog) and "Catalog" (the real "Ingest track" action lives one level in) → a first-time user whose mental verb is "upload my audio" may click Upload and never fingerprint/catalog. Consider relabeling or de-emphasizing the generic Upload entry. (shot `.local/verify/A/01-dashboard.png`)
+- Catalog → Deduplicate — after a successful ingest nothing guides the user toward the Deduplicate view; the ingest→dedup path does not auto-chain (H4), discovery is left to the persistent sidebar (no dead-end, so not a blocker). Consider a "Check for duplicates" CTA on the ingest-success toast/row. (shot `.local/verify/A/05-ingest-result.png`)
+- Ingest / Deduplicate in-progress — a loading spinner IS shown, but there is no determinate progress bar; `ingestTrack()` in `api-client.ts` exposes an unused `onProgress` callback while uploads up to 100 MB are accepted, so a large upload would show a spinner with no advancing percentage past ~10s. Wire `onProgress` into the dialog for large-file feedback. (shot `.local/verify/B/03-ingest-inprogress.png`)
