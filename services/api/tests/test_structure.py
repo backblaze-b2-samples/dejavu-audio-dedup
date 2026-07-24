@@ -82,6 +82,34 @@ def test_boto3_only_in_repo():
     assert violations == [], "boto3 boundary violations:\n" + "\n".join(violations)
 
 
+def test_dejavu_only_in_repo():
+    """Verify the Dejavu engine and the MySQL driver are only imported in
+    app/repo/ (symmetry with the boto3 containment rule). Keeps the heavy,
+    native audio stack out of the service/runtime layers.
+
+    """
+    violations = []
+    for layer in LAYER_ORDER:
+        if layer == "repo":
+            continue
+        layer_dir = APP_ROOT / layer
+        if not layer_dir.exists():
+            continue
+        for pyfile in _get_python_files(layer_dir):
+            for imp in _get_imports(pyfile):
+                if (
+                    imp == "dejavu"
+                    or imp.startswith("dejavu.")
+                    or imp == "mysql"
+                    or imp.startswith("mysql.")
+                ):
+                    rel = pyfile.relative_to(APP_ROOT.parent)
+                    violations.append(
+                        f"{rel}: dejavu/mysql imported outside repo/ ({imp})"
+                    )
+    assert violations == [], "dejavu/mysql boundary violations:\n" + "\n".join(violations)
+
+
 def test_file_size_limits():
     """Verify no Python file exceeds 300 lines."""
     violations = []

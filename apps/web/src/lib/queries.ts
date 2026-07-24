@@ -4,17 +4,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   deleteFile,
+  deleteTrack,
+  getCatalog,
+  getCatalogStats,
   getFileDetail,
   getFiles,
   getFileStats,
   getHealth,
+  getIngestActivity,
   getPreviewUrl,
+  getTrack,
   getUploadActivity,
+  updateTrack,
 } from "@/lib/api-client";
 import type {
+  CatalogStats,
+  DailyIngestCount,
   FileMetadata,
   FileMetadataDetail,
-} from "@vibe-coding-starter-kit/shared";
+  Track,
+  TrackDetail,
+  TrackUpdate,
+} from "@dejavu-audio-dedup/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
 // invalidating "files" doesn't blow away unrelated caches, and so an IDE
@@ -29,6 +40,11 @@ export const qk = {
   preview: (key: string) => [...qk.all, "preview", key] as const,
   detail: (key: string) => [...qk.all, "detail", key] as const,
   health: () => [...qk.all, "health"] as const,
+  catalog: () => [...qk.all, "catalog"] as const,
+  catalogStats: () => [...qk.all, "catalog", "stats"] as const,
+  ingestActivity: (days: number) =>
+    [...qk.all, "catalog", "activity", days] as const,
+  track: (key: string) => [...qk.all, "catalog", "item", key] as const,
 };
 
 export type Health = Awaited<ReturnType<typeof getHealth>>;
@@ -102,5 +118,53 @@ export function useDeleteFile() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.all });
     },
+  });
+}
+
+// --- Catalog (Track lifecycle) ---
+
+export function useCatalog() {
+  return useQuery<Track[], ApiError>({
+    queryKey: qk.catalog(),
+    queryFn: getCatalog,
+  });
+}
+
+export function useCatalogStats() {
+  return useQuery<CatalogStats, ApiError>({
+    queryKey: qk.catalogStats(),
+    queryFn: getCatalogStats,
+  });
+}
+
+export function useIngestActivity(days = 7) {
+  return useQuery<DailyIngestCount[], ApiError>({
+    queryKey: qk.ingestActivity(days),
+    queryFn: () => getIngestActivity(days),
+  });
+}
+
+export function useTrack(key: string | undefined) {
+  return useQuery<TrackDetail, ApiError>({
+    queryKey: qk.track(key ?? ""),
+    queryFn: () => getTrack(key as string),
+    enabled: !!key,
+  });
+}
+
+export function useUpdateTrack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, update }: { key: string; update: TrackUpdate }) =>
+      updateTrack(key, update),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.all }),
+  });
+}
+
+export function useDeleteTrack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (key: string) => deleteTrack(key),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.all }),
   });
 }

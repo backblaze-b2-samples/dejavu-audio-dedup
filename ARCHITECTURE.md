@@ -4,20 +4,21 @@
 ## Components
 
 - **apps/web/** — Next.js 16 frontend (App Router, Tailwind v4, shadcn/ui)
-  - Dashboard with stats, upload chart, recent uploads
-  - File upload with drag-and-drop, progress tracking
-  - File browser with preview, download, delete
+  - Dashboard with dedup metrics, ingest-activity chart, recent ingests
+  - Catalog: ingest WAV/MP3, browse tracks with inline playback + fingerprint status, edit/delete
+  - Deduplicate: match a candidate against the live index, view the verdict
+  - Bucket explorer (Files) + generic Upload — the reusable B2-backed scaffolding
   - Dark mode via `next-themes`
 - **services/api/** — FastAPI backend (layered architecture)
-  - REST API for file upload, listing, deletion
-  - B2 S3 integration via boto3
-  - File metadata extraction (images, PDFs)
-  - Health check endpoint with B2 connectivity verification
-  - Structured JSON logging with request tracing
-  - Prometheus-format metrics endpoint
+  - REST API for catalog ingest/list/detail/edit/delete, dedup match, index export
+  - B2 S3 integration via boto3 (raw audio + SQL dump + manifest + result logs)
+  - Dejavu acoustic fingerprinting into a MySQL index (contained in `repo/dejavu_index.py`)
+  - Audio-stream metadata extraction (mutagen)
+  - Health check, structured JSON logging, Prometheus-format metrics
 - **packages/shared/** — TypeScript type definitions
   - Mirrors Pydantic models from the API
   - Consumed by `apps/web/` as workspace dependency
+- **infra/docker-compose.yml** — MySQL 8 fingerprint database (Dejavu's backend)
 
 ## Backend Layering
 
@@ -72,16 +73,24 @@ services/api/
 - **Railway** — two services from the same repo
   - See `infra/railway/README.md` for configuration
 
-## Data Stores
+## Data Stores — the two-index model
 
-- **Backblaze B2** — object storage (S3-compatible API)
-  - All uploaded files stored in a single bucket
-  - File listing and metadata via S3 `list_objects_v2` / `head_object`
-  - No application database — B2 is the sole data store
+This app deliberately has **two** stores with distinct roles:
+
+- **Backblaze B2** (S3-compatible) — the **durable source of truth**. Holds:
+  - `catalog/<track>` — raw ingested audio (immutable bytes)
+  - `index/manifest.json` — the per-track metadata source of truth (title, artist, notes, canonical/duplicate label, fingerprint id + count, extracted stream properties). Catalog objects hold only audio bytes; everything editable lives here.
+  - `index/fingerprints.sql` — a portable dump of the MySQL fingerprint tables
+  - `results/dedup-<ts>.json` — an auditable log of every dedup run
+- **MySQL** (Dejavu's canonical backend) — the **live, queryable index**. Populated at ingest; what Dejavu matches candidates against. It is *derived* state: it can be dropped and re-seeded from `index/fingerprints.sql` on B2.
+
+Dejavu never queries B2 directly. "Match against the B2-stored index" means: restore the dump into MySQL, then query. Represent both layers honestly — the durable copy on B2, the live copy in MySQL.
 
 ## External Services
 
-- **Backblaze B2 S3 API** — file storage, retrieval, deletion, presigned URLs
+- **Backblaze B2 S3 API** — durable storage of audio + fingerprint artifacts, presigned playback URLs
+- **MySQL** — Dejavu fingerprint index (local via `infra/docker-compose.yml`)
+- **Dejavu** — local, in-process acoustic fingerprinting (no external API, no key)
 
 ## Trust Boundaries
 
@@ -93,10 +102,12 @@ See [docs/SECURITY.md](docs/SECURITY.md) for full security documentation.
 
 ## Data Flows
 
-- **Upload**: Browser -> `POST /upload` (multipart) -> API validates -> service orchestrates -> repo writes to B2 -> metadata extracted -> response
-- **List**: Browser -> `GET /files` -> service calls repo -> returns file list
-- **Download**: Browser -> `GET /files/{key}/download` -> service validates key -> repo generates presigned URL -> browser downloads
-- **Delete**: Browser -> `DELETE /files/{key}` -> service validates key -> repo deletes from B2
+- **Ingest**: Browser -> `POST /catalog/ingest` (multipart) -> service stores audio to `catalog/` on B2 -> writes bytes to a temp file -> `dejavu_index.fingerprint_file` populates MySQL -> pre-ingest dedup check -> manifest updated on B2 -> `IngestResponse`
+- **Deduplicate**: Browser -> `POST /dedup/match` (candidate file OR `existing_key`) -> service fingerprints the candidate -> `dejavu_index.recognize_matches` queries MySQL -> verdict resolved against the manifest -> result logged to `results/` on B2 -> `DedupResult`
+- **Index export**: Browser -> `POST /index/export` -> `dejavu_index.dump_sql` -> `index/fingerprints.sql` + `index/manifest.json` written to B2
+- **Catalog read**: Browser -> `GET /catalog` / `GET /catalog-item?key=` -> service joins the `catalog/` object listing with the manifest, presigns inline audio URLs
+- **Edit**: Browser -> `PATCH /catalog-item?key=` -> manifest entry updated (audio bytes immutable)
+- **Delete**: Browser -> `DELETE /catalog-item?key=` -> repo deletes the B2 object (scoped to `catalog/`) -> `dejavu_index.drop_track` removes its MySQL fingerprints -> manifest entry removed
 
 ## Observability
 
@@ -107,10 +118,13 @@ See [docs/SECURITY.md](docs/SECURITY.md) for full security documentation.
 
 ## Canonical Files
 
-- Layered API handler: `services/api/app/runtime/upload.py`
-- Service orchestration: `services/api/app/service/upload.py`
-- B2 data access (repo layer): `services/api/app/repo/b2_client.py`
-- Pydantic models: `services/api/app/types/` (`files.py`, `upload.py`, `stats.py`, `formatting.py`)
+- Fingerprint engine + MySQL (contained): `services/api/app/repo/dejavu_index.py`
+- Track lifecycle service: `services/api/app/service/catalog.py`
+- Dedup service: `services/api/app/service/dedup.py`
+- Manifest shaping (B2 metadata source of truth): `services/api/app/service/manifest.py`
+- B2 artifact writes: `services/api/app/repo/b2_artifacts.py`
+- Layered API handlers: `services/api/app/runtime/catalog.py`, `dedup.py`, `index_export.py`
+- Pydantic models: `services/api/app/types/` (`catalog.py`, `dedup.py`, `files.py`, ...)
 - Config (pydantic-settings): `services/api/app/config/settings.py`
 - Structural tests: `services/api/tests/test_structure.py`
 - Frontend API client: `apps/web/src/lib/api-client.ts`
@@ -118,10 +132,13 @@ See [docs/SECURITY.md](docs/SECURITY.md) for full security documentation.
 
 ## Core Features
 
-- [File Upload](docs/features/file-upload.md)
+- [Audio Ingest & Fingerprinting](docs/features/audio-ingest.md)
+- [Deduplicate Before Ingest](docs/features/deduplicate.md)
+- [Catalog Explorer](docs/features/catalog.md)
+- [Fingerprint Index Export](docs/features/fingerprint-index.md)
 - [File Browser](docs/features/file-browser.md)
+- [File Upload](docs/features/file-upload.md)
 - [Dashboard](docs/features/dashboard.md)
-- [Metadata Extraction](docs/features/metadata-extraction.md)
 
 ## References
 

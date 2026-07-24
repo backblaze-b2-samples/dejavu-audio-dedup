@@ -1,17 +1,16 @@
 "use client";
 
-import { FileIcon, HardDrive, Upload, Download } from "lucide-react";
+import { Music, Fingerprint, CopyCheck, HardDrive } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
-import { useFileStats } from "@/lib/queries";
+import { useCatalogStats } from "@/lib/queries";
 
 export function StatsCards() {
-  const { data: stats, isLoading, error, refetch } = useFileStats();
+  const { data: stats, isLoading, error, refetch } = useCatalogStats();
 
-  // Surface fetch failures inline rather than rendering "0 files / 0 B" —
-  // that lies to the user about the bucket state when really the API is
-  // just unreachable.
+  // Surface fetch failures inline rather than rendering zeros — a zeroed card
+  // lies about the catalog state when the API is really just unreachable.
   if (error) {
     return (
       <Card>
@@ -22,11 +21,16 @@ export function StatsCards() {
     );
   }
 
+  const dupLabel =
+    stats === undefined
+      ? "0"
+      : `${stats.duplicates_detected} (${stats.duplicate_pct}%)`;
+
   const cards = [
-    { title: "Total Files", value: stats?.total_files ?? 0, icon: FileIcon },
-    { title: "Storage Used", value: stats?.total_size_human ?? "0 B", icon: HardDrive },
-    { title: "Uploads Today", value: stats?.uploads_today ?? 0, icon: Upload },
-    { title: "Total Downloads", value: stats?.total_downloads ?? 0, icon: Download },
+    { title: "Tracks in Catalog", value: stats?.tracks_in_catalog ?? 0, icon: Music },
+    { title: "Fingerprints Indexed", value: stats?.fingerprints_indexed ?? 0, icon: Fingerprint },
+    { title: "Duplicates Detected", value: dupLabel, icon: CopyCheck },
+    { title: "Audio on B2", value: stats?.total_audio_human ?? "0 B", icon: HardDrive },
   ];
 
   return (

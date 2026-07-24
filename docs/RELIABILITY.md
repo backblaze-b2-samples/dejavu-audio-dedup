@@ -40,10 +40,16 @@ The download counter and the `/metrics` counters are **in-process, per replica**
 - Per-IP fixed-window limiter (`app/runtime/ratelimit.py`); `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_WRITE_PER_MINUTE` are the budgets. Rejected requests get `429` with a `Retry-After` header.
 - Counters are in-process per replica; horizontal scaling needs a shared store (e.g. Redis) for a global limit.
 
+## Fingerprint Engine & MySQL Dependency
+
+- Ingest and dedup require a reachable MySQL (Dejavu's live index) and `ffmpeg` for MP3 decode. Engine/DB failures are caught in `service/catalog.py` / `service/dedup.py` and surfaced as `502` (`EngineError`) — they never leak a stack trace.
+- MySQL is **derived** state: it can be dropped and re-seeded from `index/fingerprints.sql` on B2 (the durable copy). See [ARCHITECTURE.md](../ARCHITECTURE.md) for the two-index model.
+- The dashboard's fingerprint count falls back to the manifest's per-track sum if MySQL is momentarily unreachable, so the UI degrades rather than erroring.
+
 ## Graceful Degradation
 
-- File listing returns empty list (not error) when B2 has no objects
-- Metadata extraction failures don't block upload (return partial metadata)
+- File/catalog listing returns an empty list (not an error) when B2 has no objects
+- Audio-metadata extraction failures don't block ingest (the media fields stay null)
 - Frontend shows skeleton states while loading, error states on failure
 
 ## Deployment

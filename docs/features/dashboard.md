@@ -1,57 +1,56 @@
-<!-- last_verified: 2026-06-25 -->
+<!-- last_verified: 2026-07-24 -->
 # Feature: Dashboard
 
 ## Purpose
-Provide an at-a-glance overview of file storage usage and recent upload activity.
+An at-a-glance view of the dedup pipeline: how big the catalog is, how much has been fingerprinted, and how many duplicates were caught.
 
 ## Used By
-- UI: `/` page (dashboard home)
-- API: `GET /files/stats`, `GET /files`, `GET /files/stats/activity`
+- UI: `/` (dashboard home)
+- API: `GET /catalog/stats`, `GET /catalog/stats/activity`, `GET /catalog`
 
 ## Core Functions
 - `apps/web/src/components/dashboard/stats-cards.tsx` — 4 stat cards
-- `apps/web/src/components/dashboard/recent-uploads-table.tsx` — last 10 uploads
-- `apps/web/src/components/dashboard/upload-chart.tsx` — bar chart of uploads per day
-- `apps/web/src/lib/api-client.ts` — `getFileStats()`, `getFiles()`, `getUploadActivity()`
-- `services/api/app/runtime/files.py` — `GET /files/stats` handler
-- `services/api/app/service/files.py` — `get_stats()` business logic
-- `services/api/app/repo/b2_client.py` — `get_upload_stats()` data access
+- `apps/web/src/components/dashboard/upload-chart.tsx` — ingest-activity bar chart (last 7 days)
+- `apps/web/src/components/dashboard/recent-uploads-table.tsx` — recent ingests table
+- `apps/web/src/lib/queries.ts` — `useCatalogStats()`, `useIngestActivity()`, `useCatalog()`
+- `services/api/app/service/catalog.py` — `get_catalog_stats()`, `get_ingest_activity()`
 
 ## Canonical Files
-- Dashboard page layout: `apps/web/src/components/dashboard/stats-cards.tsx`
-- Stats service logic: `services/api/app/service/files.py`
+- Stats service logic: `services/api/app/service/catalog.py`
+- Stat cards: `apps/web/src/components/dashboard/stats-cards.tsx`
 
 ## Inputs
 - None (dashboard loads data automatically)
 
 ## Outputs
-- `GET /files/stats` → `UploadStats` (total_files, total_size_bytes, total_size_human, uploads_today, total_downloads)
-- `GET /files` (limit 10) → `FileMetadata[]` for recent uploads table (sorted newest-first)
-- `GET /files/stats/activity?days=7` → `DailyUploadCount[]` for chart (server-side aggregation)
+- `GET /catalog/stats` → `CatalogStats` (tracks_in_catalog, fingerprints_indexed, duplicates_detected, duplicate_pct, total_audio_bytes, total_audio_human)
+- `GET /catalog/stats/activity?days=7` → `DailyIngestCount[]` (ingests per day, from manifest `ingested_at`)
+- `GET /catalog` (sliced) → recent `Track[]`
 
 ## Flow
-- Page loads → three parallel API calls (stats, recent files, upload activity)
-- Stats cards display total files, storage used, uploads today, total downloads
-- Upload chart displays server-aggregated daily counts for last 7 days as bar chart after activity data is known
-- Recent uploads table shows last 10 files with filename, size, type, date, status badge
+- Page loads → parallel calls for stats, ingest activity, and the catalog list
+- Stat cards: Tracks in Catalog, Fingerprints Indexed, Duplicates Detected (count + %), Audio on B2
+- Ingest chart: server-aggregated daily fingerprint counts for the last 7 days
+- Recent ingests table: latest tracks with title, length, date, and status badge (Fingerprinted / Pending / Duplicate)
 
 ## Edge Cases
-- API unavailable → error states with retry where supported; activity chart does not show a false zero state while loading
-- No files uploaded → empty chart message, empty table message
-- Large file count → stats endpoint paginates through all objects using `ContinuationToken`
+- API unavailable → inline error states with retry
+- Empty catalog → empty chart + table messages, zeroed cards
+- Fingerprint count falls back to the manifest sum if MySQL is briefly unreachable
 
 ## UX States
-- Loading: skeleton placeholders for cards, table, and upload activity chart
-- Empty: "No files uploaded yet" / "No upload data available yet"
+- Loading: skeletons for cards, chart, table
+- Empty: "No tracks yet" / "No ingests yet"
 - Loaded: populated cards, chart, table
 
 ## Verification
-- Test files: `services/api/tests/test_upload_activity.py`, `services/api/tests/test_recent_files.py`
-- Required cases: stats with files, stats with empty bucket, API error fallback
+- Test files: `services/api/tests/test_catalog.py`
+- Required cases: stats with tracks, empty catalog, activity aggregation
 - Quick verify command: `pnpm test:api`
-- Full verify command: `pnpm lint && pnpm lint:api && pnpm test:api && pnpm check:structure`
+- Full verify command: `pnpm lint && pnpm build && pnpm lint:api && pnpm test:api && pnpm check:structure`
 - Pass criteria: all pytest tests green, no ruff violations
 
 ## Related Docs
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- [Catalog Explorer](catalog.md)
 - [App Workflows](../app-workflows.md)

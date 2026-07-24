@@ -7,6 +7,7 @@ and re-runs the real `extract_metadata()`. Here `get_file_metadata` and
 
 import hashlib
 import io
+import wave
 from datetime import UTC, datetime
 
 import pytest
@@ -39,11 +40,14 @@ def _fake_metadata(
     )
 
 
-def _png_bytes(width: int, height: int) -> bytes:
-    from PIL import Image
-
+def _wav_bytes(seconds: float = 1.0, sample_rate: int = 8000, channels: int = 1) -> bytes:
+    """Build a valid (silent) WAV so mutagen can read real stream properties."""
     buf = io.BytesIO()
-    Image.new("RGB", (width, height), color=(10, 20, 30)).save(buf, format="PNG")
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        w.writeframes(b"\x00\x00" * int(seconds * sample_rate) * channels)
     return buf.getvalue()
 
 
@@ -66,32 +70,33 @@ async def test_detail_returns_checksums_for_text_file(client, monkeypatch):
     # The stored object's real upload time (head_object LastModified) is
     # threaded through the recompute — not the recompute wall-clock time.
     assert body["uploaded_at"].startswith("2026-01-02T03:04:05")
-    # Non-image / non-PDF: media/image/pdf fields stay null.
-    assert body["image_width"] is None
-    assert body["pdf_pages"] is None
+    # Non-audio: the audio stream fields stay null.
     assert body["duration_seconds"] is None
+    assert body["sample_rate"] is None
 
 
 @pytest.mark.asyncio
-async def test_detail_extracts_image_dimensions(client, monkeypatch):
-    png = _png_bytes(4, 7)
+async def test_detail_extracts_audio_stream(client, monkeypatch):
+    wav = _wav_bytes(seconds=1.0, sample_rate=8000, channels=1)
     monkeypatch.setattr(
         files_service,
         "get_file_metadata",
         lambda key: _fake_metadata(
-            key, content_type="image/png", size_bytes=len(png)
+            key, content_type="audio/wav", size_bytes=len(wav)
         ),
     )
-    monkeypatch.setattr(files_service, "get_object_bytes", lambda key: png)
+    monkeypatch.setattr(files_service, "get_object_bytes", lambda key: wav)
 
     resp = await client.get(
-        "/files-by-key/detail", params={"key": "uploads/pixel.png"}
+        "/files-by-key/detail", params={"key": "catalog/clip.wav"}
     )
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["image_width"] == 4
-    assert body["image_height"] == 7
+    assert body["sample_rate"] == 8000
+    assert body["channels"] == 1
+    assert body["codec"] == "wav"
+    assert abs(body["duration_seconds"] - 1.0) < 0.1
 
 
 @pytest.mark.asyncio

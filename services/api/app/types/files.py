@@ -23,15 +23,9 @@ class FileMetadataDetail(BaseModel):
     md5: str
     sha256: str
     uploaded_at: datetime
-    # Image-specific
-    image_width: int | None = None
-    image_height: int | None = None
-    exif: dict | None = None
-    # PDF-specific
-    pdf_pages: int | None = None
-    pdf_author: str | None = None
-    pdf_title: str | None = None
-    # Audio/Video
+    # Audio stream properties (populated for audio/* uploads via mutagen)
     duration_seconds: float | None = None
-    codec: str | None = None
+    sample_rate: int | None = None
+    channels: int | None = None
     bitrate: int | None = None
+    codec: str | None = None

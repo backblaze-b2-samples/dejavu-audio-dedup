@@ -2,7 +2,7 @@
 # Feature: File Browser
 
 ## Purpose
-List, preview, download, and delete files stored in Backblaze B2.
+List, preview, download, and delete **every** object in the bucket — raw audio (`catalog/`), fingerprint artifacts (`index/`), dedup logs (`results/`), and generic uploads (`uploads/`). For the app-scoped, audio-only view with fingerprint status and playback, see the [Catalog Explorer](catalog.md).
 
 ## Used By
 - UI: `/files` page, file browser component

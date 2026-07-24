@@ -24,11 +24,17 @@ Set these on the API service:
 
 | Variable | Value |
 |----------|-------|
-| `B2_ENDPOINT` | Your B2 S3 endpoint |
-| `B2_KEY_ID` | Your B2 key ID |
-| `B2_APPLICATION_KEY` | Your B2 key |
+| `B2_APPLICATION_KEY_ID` | Your B2 application key ID |
+| `B2_APPLICATION_KEY` | Your B2 application key |
 | `B2_BUCKET_NAME` | Your bucket name |
+| `B2_REGION` | Your bucket's region (e.g. `us-west-004`) |
+| `FP_DB_HOST` / `FP_DB_PORT` / `FP_DB_USER` / `FP_DB_PASSWORD` / `FP_DB_NAME` | Managed MySQL connection for the Dejavu fingerprint index |
 | `API_CORS_ORIGINS` | Your web service URL (e.g., `https://web-production-xxx.up.railway.app`) |
+
+> The API needs a reachable MySQL (Dejavu's fingerprint backend) and `ffmpeg`
+> installed for MP3 decode. On Railway, add a MySQL plugin/service and point the
+> `FP_DB_*` vars at it. The S3 endpoint is derived from `B2_REGION`
+> (`https://s3.<B2_REGION>.backblazeb2.com`).
 
 Set this on the Web service:
 

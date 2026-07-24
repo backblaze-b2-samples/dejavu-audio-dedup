@@ -1,10 +1,17 @@
 import type {
+  CatalogStats,
+  DailyIngestCount,
   DailyUploadCount,
+  DedupResult,
   FileMetadata,
   FileMetadataDetail,
   FileUploadResponse,
+  IngestResponse,
+  Track,
+  TrackDetail,
+  TrackUpdate,
   UploadStats,
-} from "@vibe-coding-starter-kit/shared";
+} from "@dejavu-audio-dedup/shared";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -184,6 +191,110 @@ export async function deleteFile(key: string) {
       method: "DELETE",
     }
   );
+}
+
+// --- Catalog (Track lifecycle) ---
+
+export async function getCatalog() {
+  return apiFetch<Track[]>("/catalog");
+}
+
+export async function getCatalogStats() {
+  return apiFetch<CatalogStats>("/catalog/stats");
+}
+
+export async function getIngestActivity(days = 7) {
+  return apiFetch<DailyIngestCount[]>(`/catalog/stats/activity?days=${days}`);
+}
+
+export async function getTrack(key: string) {
+  return apiFetch<TrackDetail>(`/catalog-item?${fileKeyQuery(key)}`);
+}
+
+export async function updateTrack(key: string, update: TrackUpdate) {
+  return apiFetch<TrackDetail>(`/catalog-item?${fileKeyQuery(key)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  });
+}
+
+export async function deleteTrack(key: string) {
+  return apiFetch<{ deleted: boolean; key: string }>(
+    `/catalog-item?${fileKeyQuery(key)}`,
+    { method: "DELETE" }
+  );
+}
+
+export function ingestTrack(
+  file: File,
+  fields: { title?: string; artist?: string; sensitivity?: string },
+  onProgress?: (percent: number) => void
+): Promise<IngestResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append("file", file);
+    if (fields.title) formData.append("title", fields.title);
+    if (fields.artist) formData.append("artist", fields.artist);
+    formData.append("sensitivity", fields.sensitivity ?? "balanced");
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText));
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject(new ApiError(body.detail || `Ingest failed: ${xhr.status}`, xhr.status));
+        } catch {
+          reject(new ApiError(`Ingest failed: ${xhr.status}`, xhr.status));
+        }
+      }
+    });
+    xhr.addEventListener("error", () => reject(networkError()));
+    xhr.addEventListener("abort", () => reject(new ApiError("Ingest aborted", 0)));
+    xhr.open("POST", `${API_BASE}/catalog/ingest`);
+    xhr.send(formData);
+  });
+}
+
+// --- Deduplicate / Match ---
+
+export async function runDedup(input: {
+  file?: File;
+  existingKey?: string;
+  sensitivity?: string;
+}): Promise<DedupResult> {
+  const formData = new FormData();
+  if (input.file) formData.append("file", input.file);
+  if (input.existingKey) formData.append("existing_key", input.existingKey);
+  formData.append("sensitivity", input.sensitivity ?? "balanced");
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/dedup/match`, { method: "POST", body: formData });
+  } catch {
+    throw networkError();
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(body.detail || `Dedup failed: ${res.status}`, res.status);
+  }
+  return res.json();
+}
+
+export async function exportIndex() {
+  return apiFetch<{
+    sql_dump_key: string;
+    manifest_key: string;
+    sql_dump_bytes: number;
+    tracks: number;
+    fingerprints: number;
+  }>("/index/export", { method: "POST" });
 }
 
 export function uploadFile(

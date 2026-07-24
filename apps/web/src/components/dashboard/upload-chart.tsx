@@ -20,29 +20,29 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUploadActivity } from "@/lib/queries";
+import { useIngestActivity } from "@/lib/queries";
 
 const chartConfig = {
-  uploads: {
-    label: "Uploads",
+  ingests: {
+    label: "Ingests",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
 
 const skeletonBarHeights = ["h-24", "h-32", "h-20", "h-36", "h-28", "h-40", "h-24"];
 
-function UploadChartSkeleton() {
+function IngestChartSkeleton() {
   return (
     <div
       role="status"
       aria-live="polite"
       className="h-[240px] w-full rounded-md border border-border bg-muted/20 px-4 py-4"
     >
-      <span className="sr-only">Loading upload activity</span>
+      <span className="sr-only">Loading ingest activity</span>
       <div aria-hidden className="flex h-full items-end gap-3">
         {skeletonBarHeights.map((height, i) => (
           <Skeleton
-            key={`${height}-${i}`}
+            key={i}
             className={`${height} min-w-0 flex-1 motion-reduce:animate-none`}
           />
         ))}
@@ -52,9 +52,8 @@ function UploadChartSkeleton() {
 }
 
 export function UploadChart() {
-  const { data: activity, isLoading, error, refetch } = useUploadActivity(7);
+  const { data: activity, isLoading, error, refetch } = useIngestActivity(7);
 
-  // Memoize so recharts doesn't re-render on identical fetches.
   const data = useMemo(
     () =>
       (activity ?? []).map((d) => ({
@@ -62,19 +61,19 @@ export function UploadChart() {
           month: "short",
           day: "numeric",
         }),
-        uploads: d.uploads,
+        ingests: d.ingests,
       })),
     [activity],
   );
 
-  const total = data.reduce((sum, d) => sum + d.uploads, 0);
+  const total = data.reduce((sum, d) => sum + d.ingests, 0);
   const hasKnownActivity = activity !== undefined;
 
   return (
     <Card>
       <CardHeader className="border-b border-border py-4 px-5">
-        <CardTitle className="card-title">Upload Activity</CardTitle>
-        <CardDescription className="text-xs">Last 7 days</CardDescription>
+        <CardTitle className="card-title">Ingest Activity</CardTitle>
+        <CardDescription className="text-xs">Tracks fingerprinted, last 7 days</CardDescription>
         <CardAction className="text-right self-center">
           {isLoading ? (
             <div aria-hidden className="space-y-1">
@@ -95,22 +94,22 @@ export function UploadChart() {
       </CardHeader>
       <CardContent className="p-5">
         {isLoading ? (
-          <UploadChartSkeleton />
+          <IngestChartSkeleton />
         ) : error ? (
           <ErrorState error={error} onRetry={() => refetch()} />
         ) : data.length === 0 ? (
           <EmptyState
             icon={BarChart3}
-            title="No activity yet"
-            description="Upload files to see activity trends here."
+            title="No ingests yet"
+            description="Ingest tracks in the Catalog to see activity trends here."
           />
         ) : (
           <ChartContainer config={chartConfig} className="h-[240px] w-full">
             <BarChart data={data} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
               <defs>
-                <linearGradient id="uploads-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-uploads)" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="var(--color-uploads)" stopOpacity={0.55} />
+                <linearGradient id="ingests-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-ingests)" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="var(--color-ingests)" stopOpacity={0.55} />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -135,8 +134,8 @@ export function UploadChart() {
               />
               <ChartTooltip cursor={{ fill: "var(--accent-subtle)" }} content={<ChartTooltipContent />} />
               <Bar
-                dataKey="uploads"
-                fill="url(#uploads-fill)"
+                dataKey="ingests"
+                fill="url(#ingests-fill)"
                 radius={[4, 4, 0, 0]}
                 animationDuration={500}
                 animationEasing="ease-out"

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Library } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/stats-cards";
@@ -13,13 +13,13 @@ export default function DashboardPage() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1.5">
-            Overview of your Backblaze B2 storage activity.
+            Audio-catalog dedup at a glance — fingerprints indexed and duplicates caught.
           </p>
         </div>
         <Button asChild size="sm" className="h-8">
-          <Link href="/upload">
-            <Upload className="h-3.5 w-3.5" />
-            Upload files
+          <Link href="/catalog">
+            <Library className="h-3.5 w-3.5" />
+            Open catalog
           </Link>
         </Button>
       </div>

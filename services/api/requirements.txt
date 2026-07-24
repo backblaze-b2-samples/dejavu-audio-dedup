@@ -5,8 +5,30 @@ python-dotenv>=1.0.0
 pydantic>=2.10.0
 pydantic-settings>=2.7.0
 boto3>=1.35.0
-Pillow>=11.0.0
-PyPDF2>=3.0.0
+
+# --- Audio fingerprinting / dedup (Dejavu, local engine) ---
+# NumPy pinned < 2: Dejavu is unmaintained and its SciPy/FFT usage predates the
+# NumPy 2 ABI break (mirrors the other older-ML samples in this program).
+numpy>=1.24,<2
+scipy>=1.10,<1.14
+pydub>=0.25.1
+# Dejavu's canonical fingerprint store is MySQL; this is the driver it imports
+# (`mysql.connector`) and the one repo/dejavu_index.py uses for its own queries.
+mysql-connector-python>=8.2,<9
+# Lightweight, pure-Python audio header reader (duration / sample rate /
+# channels / bitrate) — no ffmpeg needed just to read metadata.
+mutagen>=1.47.0
+
+# NOTE ON DEJAVU ITSELF (pinned, installed separately):
+#   Dejavu is pinned to a specific commit for reproducibility, but its setup.py
+#   hard-pins ancient numpy==1.17.2 / scipy==1.3.1 / pyaudio / psycopg2 that do
+#   not build on Python 3.11. Install it WITHOUT deps so it uses the modern,
+#   compatible stack above (file-only fingerprinting needs no pyaudio/psycopg2):
+#
+#     pip install --no-deps "PyDejavu @ git+https://github.com/worldveil/dejavu@e56a4a221ad204654a191d217f92aebf3f058b62"
+#
+#   ffmpeg is required at runtime only to decode MP3 (via pydub); WAV needs no
+#   external binary. See README "Quick Start" and docs/exec-plans/tech-debt-tracker.md.
 
 # Dev / quality
 ruff>=0.8.0

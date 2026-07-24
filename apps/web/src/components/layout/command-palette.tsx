@@ -9,6 +9,8 @@ import {
   Settings,
   Sparkles,
   FileIcon,
+  Library,
+  ScanSearch,
   Moon,
   Sun,
 } from "lucide-react";
@@ -25,7 +27,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { getFiles } from "@/lib/api-client";
-import type { FileMetadata } from "@vibe-coding-starter-kit/shared";
+import type { FileMetadata } from "@dejavu-audio-dedup/shared";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -34,6 +36,8 @@ interface CommandPaletteProps {
 
 const routes = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Catalog", href: "/catalog", icon: Library },
+  { label: "Deduplicate", href: "/dedup", icon: ScanSearch },
   { label: "Upload", href: "/upload", icon: Upload },
   { label: "Files", href: "/files", icon: FolderOpen },
   { label: "Settings", href: "/settings", icon: Settings },

@@ -1,175 +1,102 @@
-<!-- last_verified: 2026-07-15 -->
-# Vibe Coding Starter Kit
+<!-- last_verified: 2026-07-24 -->
+# Dejavu Audio Dedup
 
-Stop wiring boilerplate and start building. This open-source starter kit gives vibe coders and AI coding agents a production-ready foundation — a full-stack TypeScript + Python template with a pre-built dashboard UI, file upload system, and **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)** cloud storage already integrated. Save thousands of tokens on setup prompts, skip the "build me a dashboard from scratch" loop, and go straight to building your app's unique features.
+Deduplicate large audio catalogs before ingest, with **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-dejavu-audio-dedup)** as the durable storage layer. Music streaming platforms and podcast networks ingest big raw audio libraries (WAV/MP3) and need to answer one question before adding a track: *have we seen this recording already?*
+
+This sample answers it end to end using **[Dejavu](https://github.com/worldveil/dejavu)**, the open-source acoustic-fingerprinting library, as a fully **local** matching engine (no external API, no second key — B2 credentials only):
+
+- **B2 is the durable source of truth** for the raw audio catalog **and** every derived artifact — the portable SQL fingerprint dump, the per-track JSON manifest, and the dedup result logs. Nothing app-specific lives outside B2 except the live queryable index.
+- **Dejavu runs locally**: it decodes each file, computes spectrogram-peak fingerprint hashes, and populates a **MySQL** fingerprint database (its canonical backend). New candidate tracks are fingerprinted and matched against that index; duplicates are flagged and logged to B2.
 
 **What you get out of the box:**
 - Full-stack dashboard UI (Next.js 16 + React 19 + Tailwind v4 + shadcn/ui)
-- File upload with drag-and-drop, progress tracking, and metadata extraction
-- File browser with preview, download, and delete
+- **Catalog** view — ingest WAV/MP3, fingerprint locally, browse tracks with inline playback and fingerprint status
+- **Deduplicate** view — match a candidate (upload or existing track) against the live index; every run logged to B2
 - FastAPI backend with strict layered architecture and structural tests
-- Agent-optimized docs — your AI coding agent can read the repo and start contributing immediately
+- Bucket explorer + generic upload (the reusable B2-backed scaffolding)
 
 ## What it looks like
 
-**Dashboard** — stats, upload activity, and recent uploads at a glance:
+**Dashboard** — dedup metrics and recent ingests:
 
-![Dashboard view showing stat cards, upload activity chart, and recent uploads table](docs/images/b2-starterkit-dashboard1.png)
+![Dashboard with tracks-in-catalog, fingerprints-indexed and duplicates-detected stat cards](docs/images/dejavu-audio-dedup-dashboard.png)
 
-**File browser** — tree view with preview, download, and delete:
+**Catalog** — ingested tracks with fingerprint status and inline players:
 
-![File browser view showing a tree of files with hover actions](docs/images/b2-starterkit-fileview2.png)
+![Catalog view listing audio tracks with fingerprint status badges and audio players](docs/images/dejavu-audio-dedup-catalog.png)
 
-## Agent-First Architecture
+## How the two index layers relate
 
-This repo is optimized for coding agents. Use the template, point your agent at it, and start building.
-
-The structure follows the principle that **repository knowledge is the system of record**. Anything an agent can't access in-context doesn't exist — so everything it needs to reason about the codebase is versioned, co-located, and discoverable from the repo itself.
-
-### How it works
-
-**[AGENTS.md](AGENTS.md) is the single source of truth for all coding agents.** A ~100 line entry point gives agents the repository layout, architectural invariants, commands, conventions, and pointers to deeper docs. Agent-specific files (CLAUDE.md, etc.) are thin pointers back to AGENTS.md.
-
-**Architecture is enforced mechanically, not by convention.** Layering rules, import boundaries, file size limits, and SDK containment are verified by structural tests and lints that run on every change. When rules are enforceable by code, agents follow them reliably.
-
-**The knowledge base is structured for progressive disclosure:**
-
-```
-AGENTS.md              Single source of truth — layout, invariants, commands, conventions
-ARCHITECTURE.md        System layout, layering rules, data flows
-docs/
-  features/            Feature docs (inputs, outputs, flows, edge cases)
-  app-workflows.md     User journeys
-  dev-workflows.md     Engineering workflows and testing
-  SECURITY.md          Security principles
-  RELIABILITY.md       Reliability expectations
-  exec-plans/          Execution plans and tech debt tracker
-```
-
-### Key design decisions
-
-| Principle | Implementation |
-|-----------|---------------|
-| Give agents a single source of truth | AGENTS.md ~100 lines — layout, invariants, commands, conventions |
-| Enforce invariants mechanically | Structural tests + ruff + ESLint verify boundaries |
-| DRY documentation | Each fact lives in one place; no redundant files to drift |
-| Strict layered architecture | `types -> config -> repo -> service -> runtime`, enforced by tests |
-| Prefer boring, composable libraries | stdlib logging over frameworks, Pydantic over ad-hoc validation |
-| Contain external SDKs | `boto3` only in `repo/` layer — verified by structural test |
-| Keep files agent-sized | 300-line limit per file, enforced by test |
-| Docs updated with code | Same-PR requirement prevents documentation rot |
-| Structured observability | JSON logging, `/metrics` endpoint, request tracing |
-
-This approach draws from [OpenAI's experience building with Codex](https://openai.com/index/harness-engineering/): agents work best in environments with strict boundaries, predictable structure, and progressive context disclosure.
+MySQL is the **live, queryable** index Dejavu matches against — populated at ingest. **B2 holds the durable copy** (raw audio + the SQL dump + the manifest) from which MySQL can be re-seeded. Dejavu never queries B2 directly: the "match against the B2-stored index" story is *restore dump → MySQL → query*. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, Docker (for MySQL), `ffmpeg` (for MP3 decode; WAV needs none), and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-dejavu-audio-dedup)**.
 
-### Start a new project
-
-**Option 1: GitHub Template (recommended)**
-
-Click the green **"Use this template"** button at the top of this repo, name your project, then:
-
-```bash
-git clone https://github.com/yourorg/my-cool-app.git
-cd my-cool-app
-```
-
-**Option 2: Clone and reinitialize**
-
-```bash
-git clone https://github.com/backblaze-b2-samples/vibe-coding-starter-kit.git my-cool-app
-cd my-cool-app
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from vibe-coding-starter-kit"
-```
-
-Either way you get a clean project with no upstream history — ready to push to your own repo and point your agent at it.
-
-### Setup
-
-**1. Install dependencies**
+### 1. Install dependencies
 
 ```bash
 pnpm install
 ```
 
-**2. Set up the backend**
+### 2. Set up the backend
 
 ```bash
 cd services/api
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+# Dejavu is pinned but installed WITHOUT its (ancient) deps so it uses the
+# modern, compatible numpy/scipy above — see requirements.txt for why.
+pip install --no-deps "PyDejavu @ git+https://github.com/worldveil/dejavu@e56a4a221ad204654a191d217f92aebf3f058b62"
 cd ../..
 ```
 
-**3. Add your B2 credentials**
+> `ffmpeg` is required only to decode MP3 (via pydub). On macOS: `brew install ffmpeg`. WAV works without it.
 
-Set up your local `.env`:
+### 3. Start MySQL (Dejavu's fingerprint backend)
+
+```bash
+docker compose -f infra/docker-compose.yml up -d mysql
+```
+
+This starts a `mysql:8` service whose credentials match the `FP_DB_*` defaults in `.env.example`.
+
+### 4. Add your B2 credentials
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start) and:
+Open `.env` and head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-dejavu-audio-dedup):
 
-1. **Create a bucket.** B2 will show two values — paste each into `.env`:
-   - **Bucket Unique Name** → `B2_BUCKET_NAME`
-   - **Endpoint** → `B2_ENDPOINT`
-2. **Create an application key** with `Read and Write` permission. B2 will show two values — paste each into `.env`:
-   - **keyID** → `B2_KEY_ID`
-   - **applicationKey** → `B2_APPLICATION_KEY` *(only shown once — paste it now)*
+1. **Create a bucket** → paste its **Bucket Unique Name** into `B2_BUCKET_NAME`, and set `B2_REGION` to the region in its S3 endpoint (e.g. an endpoint of `s3.us-west-004.backblazeb2.com` means `B2_REGION=us-west-004`).
+2. **Create an application key** with `Read and Write` → paste **keyID** into `B2_APPLICATION_KEY_ID` and **applicationKey** into `B2_APPLICATION_KEY` *(shown once)*.
 
-> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys).
+The S3 endpoint is derived from `B2_REGION` (`https://s3.<B2_REGION>.backblazeb2.com`).
 
-**4. Run it**
+### 5. Run it
 
 ```bash
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Upload a file and see it working. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
-
-`pnpm dev` runs `pnpm doctor` first — a preflight check that catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm doctor`.
-
-## Building Your App
-
-When you adapt this kit for a new app, keep the shared scaffolding and only swap out what's app-specific:
-
-- **Keep** the UI kit (`apps/web/src/components/ui/` + design tokens in `globals.css` + `/design`).
-- **Keep** the File Explorer (`/files`) and Upload (`/upload`) pages and their sidebar nav entries — they're the reusable B2-backed surface.
-- **Adapt** the Dashboard (`/`) to your use case — replace the default stats, chart, and recent uploads with metrics that reflect what your app actually does.
-- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds the app name and description (`APP_NAME`, `APP_DESCRIPTION`). Changing them there updates the page title, sidebar, and breadcrumb everywhere — no other files to touch.
-
-Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AGENTS.md#2-building-on-this-starter-kit).
+Frontend at `localhost:3000`, API at `localhost:8000`. Open **Catalog**, ingest a WAV/MP3, then re-upload it in **Deduplicate** to see it flagged. Interactive API docs at `localhost:8000/docs`.
 
 ## Core Features
 
-- [File Upload](docs/features/file-upload.md) — drag-and-drop upload with real-time progress
-- [File Browser](docs/features/file-browser.md) — list, preview, download, delete files
-- [Dashboard](docs/features/dashboard.md) — stats cards, upload chart, recent uploads
-- [Metadata Extraction](docs/features/metadata-extraction.md) — image dimensions, EXIF, PDF info, checksums
-- [Design System](docs/design-system.md) — tokens, primitives, AI elements, the blaze generating loader, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
-- Inline error handling — fetch failures surface *what's wrong* (API offline, 401, 5xx) and offer a Retry, instead of silently rendering empty state.
-- Single-source config — one `.env` at the repo root powers both API and web app, validated at startup so misconfig fails fast with a readable message.
-- Centralized data layer — every fetch goes through TanStack Query hooks in `apps/web/src/lib/queries.ts`; cache invalidation is one call after a mutation.
-- Structural tests — verify layering rules, import boundaries, SDK containment, file size limits
-- Structured JSON logging — every request traced with `request_id` and timing
-- `/health` endpoint — B2 connectivity check
-- `/metrics` endpoint — Prometheus-format counters (request count, latency, uploads)
-- `/docs` + `/redoc` — auto-generated interactive API docs (toggle off in prod with `ENABLE_DOCS=false`)
-- Per-IP rate limiting and magic-byte upload validation — see [SECURITY.md](docs/SECURITY.md)
+- [Audio Ingest & Fingerprinting](docs/features/audio-ingest.md) — upload WAV/MP3 → store to `catalog/` → fingerprint locally → MySQL populated → manifest updated
+- [Deduplicate Before Ingest](docs/features/deduplicate.md) — fingerprint a candidate, match against the index, flag and log the verdict
+- [Catalog Explorer](docs/features/catalog.md) — app-scoped `catalog/` view with fingerprint status and inline playback
+- [Fingerprint Index Export](docs/features/fingerprint-index.md) — dump the MySQL DB (`index/fingerprints.sql`) + per-track manifest back to B2
+- [File Browser](docs/features/file-browser.md) — full-bucket browse over every object (audio + artifacts)
+- [File Upload](docs/features/file-upload.md) — generic drag-and-drop B2 upload
+- [Dashboard](docs/features/dashboard.md) — dedup metrics, ingest-activity chart, recent ingests
 
 ## Tech Stack
 
-- TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts
-- TanStack Query — caching, dedup, retry, stale-while-revalidate for every fetch
-- Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow, PyPDF2
-- Backblaze B2 (S3-compatible object storage)
+- TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts, TanStack Query
+- Python 3.11+, FastAPI, boto3, Pydantic v2, Dejavu (acoustic fingerprinting), MySQL, mutagen
+- Backblaze B2 (S3-compatible object storage) — durable store for audio + fingerprint artifacts
 - pnpm workspaces (monorepo)
 
 ## Commands
@@ -182,28 +109,23 @@ Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AG
 | `pnpm build` | Build frontend |
 | `pnpm lint` | Lint frontend |
 | `pnpm lint:api` | Lint backend (ruff) |
-| `pnpm test:web` | Run frontend unit tests (vitest) |
-| `pnpm test:api` | Run backend tests |
-| `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright e2e tests (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first) |
+| `pnpm test:web` | Frontend unit tests (vitest) |
+| `pnpm test:api` | Backend tests (pytest) |
+| `pnpm check:structure` | Verify layering + SDK-containment rules |
+| `pnpm test:e2e` | Playwright e2e (run `pnpm --filter @dejavu-audio-dedup/web exec playwright install chromium` once first) |
 
 ## Documentation Map
 
 | Doc | Purpose |
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent table of contents — start here |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows |
-| [docs/features/](docs/features/) | Feature docs (upload, browser, dashboard, metadata) |
-| [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, AI elements, loader, error/empty states |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows, the two-index model |
+| [docs/features/](docs/features/) | Feature docs (ingest, dedup, catalog, index export, browser, upload, dashboard) |
 | [docs/app-workflows.md](docs/app-workflows.md) | User journeys |
 | [docs/dev-workflows.md](docs/dev-workflows.md) | Engineering workflows and testing |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security principles |
 | [docs/RELIABILITY.md](docs/RELIABILITY.md) | Reliability expectations |
 | [docs/exec-plans/](docs/exec-plans/) | Execution plans and tech debt tracker |
-
-## Contributing
-
-Start with [AGENTS.md](AGENTS.md). It's the map — everything else is discoverable from there.
 
 ## License
 

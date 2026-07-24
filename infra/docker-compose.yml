@@ -1,0 +1,34 @@
+# MySQL fingerprint database for Dejavu — the live, queryable index the app
+# matches against. Backblaze B2 holds the durable source of truth (raw audio +
+# the SQL dump + the manifest); this DB can always be re-seeded from that dump.
+#
+# Start it before running the API:
+#   docker compose -f infra/docker-compose.yml up -d mysql
+#
+# The credentials here match the FP_DB_* defaults in .env.example. Change both
+# together if you edit them.
+services:
+  mysql:
+    image: mysql:8
+    container_name: dejavu-audio-dedup-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: dejavu-root
+      MYSQL_DATABASE: dejavu
+      MYSQL_USER: dejavu
+      MYSQL_PASSWORD: dejavu
+    ports:
+      - "3306:3306"
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --max_allowed_packet=64M
+    volumes:
+      - dejavu_fp_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pdejavu-root"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dejavu_fp_data:

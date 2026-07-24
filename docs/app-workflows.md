@@ -3,6 +3,32 @@
 
 User journeys inside the application.
 
+## Ingest a Track
+
+- User navigates to `/catalog` and clicks **Ingest track**
+- Chooses a WAV/MP3, sets a title/artist, and picks a **match sensitivity** (Strict/Balanced/Loose)
+- API stores the audio at `catalog/<name>` on B2, fingerprints it locally into MySQL, and updates the manifest on B2
+- The ingest also checks the candidate against the existing index — a match is flagged as a duplicate
+- On success: toast; the catalog list and dashboard refresh
+- See: [Audio Ingest & Fingerprinting](features/audio-ingest.md)
+
+## Deduplicate Before Ingest
+
+- User navigates to `/dedup`
+- Picks a candidate source: upload a file, or select an existing catalog track
+- Chooses a sensitivity and clicks **Run dedup**
+- API fingerprints the candidate and matches it against the live index
+- Result panel shows the verdict (Duplicate / No duplicate), the matched track with an inline player, confidence and time-offset, and all matches
+- The verdict is logged to `results/` on B2
+- See: [Deduplicate Before Ingest](features/deduplicate.md)
+
+## Browse & Manage the Catalog
+
+- User navigates to `/catalog` → list of ingested tracks with fingerprint status and inline players
+- Opens a track's **Details** → metadata, player, and a pre-filled edit form (title/artist/notes + canonical-status selector)
+- Deletes a track → confirm dialog → object removed from B2 (scoped to `catalog/`), fingerprints dropped from MySQL, manifest updated
+- See: [Catalog Explorer](features/catalog.md)
+
 ## Upload Files
 
 - User navigates to `/upload`

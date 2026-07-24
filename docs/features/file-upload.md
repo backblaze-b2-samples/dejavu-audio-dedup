@@ -2,7 +2,7 @@
 # Feature: File Upload
 
 ## Purpose
-Upload files from the browser to Backblaze B2 with real-time progress tracking.
+Upload files from the browser to Backblaze B2 with real-time progress tracking. This is the **generic** upload surface (any allowed type, stored under `uploads/`). The audio-specific ingest path — which also fingerprints into the index and updates the manifest — is a separate feature; see [Audio Ingest & Fingerprinting](audio-ingest.md).
 
 ## Used By
 - UI: `/upload` page, upload form component

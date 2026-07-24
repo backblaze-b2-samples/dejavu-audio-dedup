@@ -7,11 +7,18 @@ This is the authoritative control surface for all coding agents. Read this first
 
 ```
 apps/web/          Next.js 16 frontend (App Router, Tailwind v4, shadcn/ui)
+  src/app/catalog/   Catalog list + track detail (Track lifecycle UI)
+  src/app/dedup/     Deduplicate / Match view
 services/api/      FastAPI backend (layered: types/config/repo/service/runtime)
+  app/repo/dejavu_index.py   Dejavu engine + MySQL (the ONLY dejavu/mysql importer)
+  app/repo/b2_artifacts.py   Manifest/SQL-dump/result-log writes on B2
+  app/service/catalog.py     Track ingest/read/edit/delete
+  app/service/dedup.py       Candidate → match → result log
+  app/service/index_export.py  MySQL dump + manifest → B2
 packages/shared/   Shared TypeScript types
 docs/              System of record (features, workflows, security, reliability)
 docs/exec-plans/   Execution plans and tech debt tracker
-infra/railway/     Deployment config
+infra/             docker-compose.yml (MySQL fingerprint DB) + railway/ deploy config
 ```
 
 ## 2. Building on This Starter Kit
@@ -37,6 +44,7 @@ When this repo is used as the foundation for a new app, the following pieces are
 
 - No backward imports across layers
 - No `boto3` outside `repo/`
+- **No `dejavu` or MySQL-driver (`mysql.connector`) import outside `repo/`** — the fingerprint engine and its DB are contained in `repo/dejavu_index.py`, symmetric to the boto3 rule
 - No business logic in route handlers (`runtime/`)
 - All external APIs wrapped in `repo/` adapters
 - All request/response data validated at boundary (Pydantic models)
@@ -64,6 +72,7 @@ When this repo is used as the foundation for a new app, the following pieces are
 |------|-------------|
 | No backward imports | `tests/test_structure.py::test_no_backward_imports` |
 | No boto3 outside repo/ | `tests/test_structure.py::test_boto3_only_in_repo` |
+| No dejavu/mysql outside repo/ | `tests/test_structure.py::test_dejavu_only_in_repo` |
 | File size < 300 lines | `tests/test_structure.py::test_file_size_limits` |
 | All layers exist | `tests/test_structure.py::test_all_layers_exist` |
 | No bare print() | `ruff` rule T20 |

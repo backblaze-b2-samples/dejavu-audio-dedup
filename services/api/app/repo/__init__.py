@@ -1,3 +1,4 @@
+from app.repo.b2_artifacts import get_inline_url, get_json, put_bytes, put_json
 from app.repo.b2_client import (
     check_connectivity,
     delete_file,
@@ -15,10 +16,14 @@ __all__ = [
     "delete_file",
     "get_download_count",
     "get_file_metadata",
+    "get_inline_url",
+    "get_json",
     "get_object_bytes",
     "get_presigned_url",
     "get_upload_stats",
     "increment_download_count",
     "list_files",
+    "put_bytes",
+    "put_json",
     "upload_file",
 ]
